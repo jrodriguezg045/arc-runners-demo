@@ -1,14 +1,4 @@
 services:
-  floci-aws:
-    image: floci/floci:latest
-    container_name: floci-aws
-
-    ports:
-      - "4566:4566"
-
-    networks:
-      - arc-demo
-
   demo-setup:
     image: alpine:3.19
     container_name: demo-arc-setup
@@ -21,14 +11,10 @@ services:
 
     environment:
       GITHUB_PAT: ${GITHUB_PAT}
-      DOCKER_NETWORK: arc-runners-demo-network
 
     entrypoint:
       - /bin/sh
       - /project/entrypoint.sh
-
-    depends_on:
-      - floci-aws
 
     networks:
       - arc-demo

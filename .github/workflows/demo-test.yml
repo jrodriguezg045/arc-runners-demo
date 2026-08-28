@@ -1,11 +1,11 @@
-name: 🚀 ARC Runner Verification
+name: ARC Runner Verification
 
 on:
   workflow_dispatch:
 
 jobs:
   verify-runner:
-    name: 🔍 Verify ARC Runner Connection
+    name: Verify ARC Runner Connection
     runs-on: arc-runner-set
     timeout-minutes: 3
 
@@ -17,11 +17,11 @@ jobs:
         run: |
           echo "Job successfully executing on a local ARC runner!"
           echo "User running inside the runner pod: $(whoami)"
-          echo "🖥️ Runner container architecture and operating system:"
+          echo "Runner container architecture and operating system:"
           uname -a
 
   matrix-stress-test:
-    name: 📈 Autoscaling Demonstration
+    name: Autoscaling Demonstration
     runs-on: arc-runner-set
     timeout-minutes: 5
 

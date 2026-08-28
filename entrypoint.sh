@@ -46,7 +46,6 @@ apk add --no-cache \
   kubectl \
   curl \
   bash \
-  unzip \
   ca-certificates
 
 # ============================================================
