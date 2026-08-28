@@ -1,0 +1,40 @@
+# ============================================================
+# GitHub Actions Runner Scale Set
+# ============================================================
+
+# GitHub repository associated with this runner scale set
+githubConfigUrl: "https://github.com/jrodriguezg045/arc-runners-demo"
+
+# Name used in the runs-on field:
+# runs-on: arc-runner-set
+runnerScaleSetName: "arc-runner-set"
+
+# ============================================================
+# Autoscaling
+# ============================================================
+
+# Keep 0 runners when there are no jobs
+minRunners: 0
+
+# Maximum number of concurrent runners
+maxRunners: 5
+
+# ============================================================
+# Runner
+# ============================================================
+
+template:
+  spec:
+    containers:
+      - name: runner
+        image: ghcr.io/actions/actions-runner:latest
+        command:
+          - /home/runner/run.sh
+
+        resources:
+          requests:
+            cpu: "500m"
+            memory: "512Mi"
+          limits:
+            cpu: "1"
+            memory: "1Gi"

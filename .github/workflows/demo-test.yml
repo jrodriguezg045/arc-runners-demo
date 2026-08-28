@@ -1,0 +1,39 @@
+name: 🚀 ARC Runner Verification
+
+on:
+  workflow_dispatch:
+
+jobs:
+  verify-runner:
+    name: 🔍 Verify ARC Runner Connection
+    runs-on: arc-runner-set
+    timeout-minutes: 3
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Local Environment Information
+        run: |
+          echo "Job successfully executing on a local ARC runner!"
+          echo "User running inside the runner pod: $(whoami)"
+          echo "🖥️ Runner container architecture and operating system:"
+          uname -a
+
+  matrix-stress-test:
+    name: 📈 Autoscaling Demonstration
+    runs-on: arc-runner-set
+    timeout-minutes: 5
+
+    strategy:
+      matrix:
+        worker: [1, 2, 3, 4]
+
+    steps:
+      - name: Simulate Load on Worker #${{ matrix.worker }}
+        run: |
+          echo "Hello from Worker #${{ matrix.worker }} running on ARC"
+          echo "Kubernetes runner pod ID: $(hostname)"
+          echo "Simulating processing for 60 seconds to observe autoscaling..."
+          sleep 60
+          echo "Worker #${{ matrix.worker }} completed successfully."
