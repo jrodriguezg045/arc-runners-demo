@@ -6,6 +6,9 @@ KIND_CONTEXT="kind-${CLUSTER_NAME}"
 CONTROL_PLANE="${CLUSTER_NAME}-control-plane"
 DOCKER_NETWORK="${DOCKER_NETWORK:-arc-runners-demo-network}"
 
+# GitHub Actions runner image
+RUNNER_IMAGE="ghcr.io/actions/actions-runner:latest"
+
 echo "============================================"
 echo "ARC Demo Environment Setup"
 echo "============================================"
@@ -222,6 +225,46 @@ echo "Kubernetes is available."
 kubectl get nodes
 
 # ============================================================
+# Wait for Kind node to become Ready
+# ============================================================
+
+echo ""
+echo "Waiting for Kind control-plane node to become Ready..."
+
+for i in $(seq 1 30); do
+  if kubectl wait \
+      --for=condition=Ready \
+      node/"$CONTROL_PLANE" \
+      --timeout=5s >/dev/null 2>&1; then
+
+    echo "Kind control-plane node is Ready."
+    break
+  fi
+
+  echo "Node is not ready yet... attempt ${i}/30"
+  sleep 2
+done
+
+# ============================================================
+# Pre-load GitHub Actions runner image into Kind
+# ============================================================
+
+echo ""
+echo "Pre-loading GitHub Actions runner image..."
+echo "Image: ${RUNNER_IMAGE}"
+
+echo "Pulling runner image into Docker..."
+
+docker pull "$RUNNER_IMAGE"
+
+echo "Loading runner image into Kind..."
+
+kind load docker-image "$RUNNER_IMAGE" \
+  --name "$CLUSTER_NAME"
+
+echo "Runner image is available in Kind."
+
+# ============================================================
 # [3/4] Install Actions Runner Controller
 # ============================================================
 
@@ -267,6 +310,97 @@ helm upgrade --install arc-runner-set \
 echo "Runner Scale Set installed."
 
 # ============================================================
+# Wait for minimum runner
+# ============================================================
+
+echo ""
+echo "Waiting for minimum runner to be created..."
+
+RUNNER_READY=false
+
+for i in $(seq 1 60); do
+
+  RUNNER_POD="$(kubectl get pods \
+    -n arc-runners \
+    -l app.kubernetes.io/component=runner \
+    -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)"
+
+  if [ -n "$RUNNER_POD" ]; then
+    echo "Runner pod created: ${RUNNER_POD}"
+    break
+  fi
+
+  echo "Runner pod not created yet... attempt ${i}/60"
+  sleep 2
+
+done
+
+if [ -z "${RUNNER_POD:-}" ]; then
+
+  echo "Runner pod was not created within the timeout."
+  echo ""
+
+  echo "Runner Scale Set:"
+  kubectl get autoscalingrunnersets -n arc-runners
+
+  echo ""
+  echo "ARC system pods:"
+  kubectl get pods -n arc-systems
+
+  echo ""
+  echo "ARC events:"
+  kubectl get events \
+    -n arc-systems \
+    --sort-by=.lastTimestamp
+
+  echo ""
+  echo "Runner namespace events:"
+  kubectl get events \
+    -n arc-runners \
+    --sort-by=.lastTimestamp
+
+  exit 1
+
+fi
+
+# ============================================================
+# Wait for runner pod to become Ready
+# ============================================================
+
+echo ""
+echo "Waiting for runner pod to become Ready..."
+
+if kubectl wait \
+    --for=condition=Ready \
+    "pod/${RUNNER_POD}" \
+    -n arc-runners \
+    --timeout=180s; then
+
+  RUNNER_READY=true
+  echo "Runner is ready."
+
+else
+
+  echo "Runner did not become ready within the timeout."
+  echo ""
+
+  echo "Runner pod:"
+  kubectl get pod \
+    "${RUNNER_POD}" \
+    -n arc-runners \
+    -o wide
+
+  echo ""
+  echo "Runner pod details:"
+  kubectl describe pod \
+    "${RUNNER_POD}" \
+    -n arc-runners
+
+  exit 1
+
+fi
+
+# ============================================================
 # Validation
 # ============================================================
 
@@ -297,6 +431,12 @@ kubectl get pods -A
 echo ""
 echo "Runner Scale Set:"
 kubectl get autoscalingrunnersets -n arc-runners
+
+echo ""
+echo "Ready runner:"
+kubectl get pods \
+  -n arc-runners \
+  -l app.kubernetes.io/component=runner
 
 echo ""
 echo "The setup container will remain alive for the demo."

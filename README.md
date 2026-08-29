@@ -120,15 +120,10 @@ Do not commit the token to the repository.
 ├── kubernetes/
 │   └── runner-values.yaml
 │
-├── terraform/
-│   └── ...
-│
 ├── docker-compose.yml
 ├── entrypoint.sh
 └── README.md
 ```
-
-> The `terraform/` directory may exist in the repository for other experiments or future infrastructure work, but Terraform is **not required by the ARC demo bootstrap process**.
 
 ## Configuration
 

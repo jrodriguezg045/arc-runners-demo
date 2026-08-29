@@ -13,11 +13,11 @@ runnerScaleSetName: "arc-runner-set"
 # Autoscaling
 # ============================================================
 
-# Keep 0 runners when there are no jobs
-minRunners: 0
+# Keep 1 runner ready when there are no jobs
+minRunners: 1
 
 # Maximum number of concurrent runners
-maxRunners: 5
+maxRunners: 3
 
 # ============================================================
 # Runner
@@ -27,7 +27,10 @@ template:
   spec:
     containers:
       - name: runner
+      
         image: ghcr.io/actions/actions-runner:latest
+        imagePullPolicy: IfNotPresent
+
         command:
           - /home/runner/run.sh
 
