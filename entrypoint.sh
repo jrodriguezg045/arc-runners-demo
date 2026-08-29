@@ -300,11 +300,21 @@ if [ -z "${GITHUB_PAT:-}" ]; then
   exit 1
 fi
 
+if [ -z "${GITHUB_CONFIG_URL:-}" ]; then
+  echo "GITHUB_CONFIG_URL is not set."
+  echo ""
+  echo "Set it before running Docker Compose:"
+  echo "  export GITHUB_CONFIG_URL=https://github.com/OWNER/REPOSITORY"
+  echo ""
+  exit 1
+fi
+
 helm upgrade --install arc-runner-set \
   oci://ghcr.io/actions/actions-runner-controller-charts/gha-runner-scale-set \
   --namespace arc-runners \
   --create-namespace \
   --values kubernetes/runner-values.yaml \
+  --set githubConfigUrl="$GITHUB_CONFIG_URL" \
   --set githubConfigSecret.github_token="$GITHUB_PAT"
 
 echo "Runner Scale Set installed."

@@ -11,6 +11,7 @@ services:
 
     environment:
       GITHUB_PAT: ${GITHUB_PAT}
+      GITHUB_CONFIG_URL: ${GITHUB_CONFIG_URL}
 
     entrypoint:
       - /bin/sh

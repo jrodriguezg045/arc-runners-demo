@@ -1,43 +1,43 @@
 # GitHub Actions Runner Scale Set Demo
 
-A portable local demo of **GitHub Actions Runner Scale Sets (ARC)** running on a local **Kubernetes cluster managed by Kind**.
+A portable local Proof of Concept (POC) demonstrating **GitHub Actions Runner Scale Sets (ARC)** running on a local **Kubernetes cluster managed by Kind**.
 
-The project uses Docker Compose to bootstrap the environment, making it possible to reproduce the demo on different machines and CPU architectures without requiring a pre-existing Kubernetes cluster.
+The project uses Docker Compose to bootstrap the complete environment, allowing the demo to be reproduced on different machines and CPU architectures without requiring a pre-existing Kubernetes cluster.
 
-The demo uses **one pre-provisioned runner** and can automatically scale up to **three concurrent runners** when additional GitHub Actions jobs are queued.
-
----
+The GitHub repository used by the runner scale set is configurable through environment variables, so the demo can be used with your own GitHub repository and Personal Access Token.
 
 ## Architecture
 
 ```text
-                         GitHub
+                    GitHub
 
-                           │
-                           │ GitHub Actions
-                           ▼
-                  ┌──────────────────┐
-                  │   ARC Controller │
-                  │                  │
-                  │   arc-systems    │
-                  └────────┬─────────┘
-                           │
-                           │ manages
-                           ▼
-                  ┌──────────────────┐
-                  │ Runner Scale Set │
-                  │  arc-runner-set  │
-                  └────────┬─────────┘
-                           │
-                  ┌────────┼────────┐
-                  ▼        ▼        ▼
-               Runner   Runner   Runner
-                Pod      Pod      Pod
-                  │        │        │
-                  └────────┼────────┘
-                           │
-                           ▼
-                    GitHub Actions
+                      │
+
+                      │ GitHub Actions
+                      ▼
+
+             ┌──────────────────┐
+             │   ARC Controller │
+             │                  │
+             │   arc-systems    │
+             └────────┬─────────┘
+                      │
+                      │ manages
+                      ▼
+             ┌──────────────────┐
+             │ Runner Scale Set │
+             │  arc-runner-set  │
+             └────────┬─────────┘
+                      │
+             ┌────────┼────────┐
+             ▼        ▼        ▼
+          Runner   Runner   Runner
+           Pod      Pod      Pod
+             │        │        │
+             └────────┼────────┘
+                      │
+                      ▼
+                GitHub Actions
 ```
 
 The Kubernetes cluster runs locally inside Docker using Kind.
@@ -52,10 +52,10 @@ The Kubernetes cluster runs locally inside Docker using Kind.
 │  │  ┌──────────────────────────────────┐  │  │
 │  │  │ Control Plane                    │  │  │
 │  │  │                                  │  │  │
-│  │  │ Kubernetes API                  │  │  │
-│  │  │ ARC Controller                  │  │  │
-│  │  │ Runner Scale Set                │  │  │
-│  │  │ Runner Pods                     │  │  │
+│  │  │ Kubernetes API                   │  │  │
+│  │  │ ARC Controller                   │  │  │
+│  │  │ Runner Scale Set                 │  │  │
+│  │  │ Runner Pods                      │  │  │
 │  │  └──────────────────────────────────┘  │  │
 │  └────────────────────────────────────────┘  │
 │                                              │
@@ -72,25 +72,19 @@ The Kubernetes cluster runs locally inside Docker using Kind.
 └──────────────────────────────────────────────┘
 ```
 
-The `demo-arc-setup` container is responsible for creating and configuring the local Kubernetes environment. The Kind control-plane container runs the Kubernetes node and its container runtime.
-
----
-
 ## What This Demo Shows
 
-The demo validates that:
+The POC demonstrates that:
 
 * A Kubernetes cluster can be created automatically with Kind.
 * ARC can be installed without an existing Kubernetes environment.
 * GitHub Actions can dynamically request self-hosted runners.
-* A minimum runner capacity can be kept available using `minRunners`.
-* ARC can scale runner capacity based on pending GitHub Actions jobs.
-* Runner pods are ephemeral and are removed after jobs complete.
-* The environment can be reproduced using Docker Compose.
-* The setup works on both `amd64` and `arm64` hosts.
-* The GitHub Actions runner image can be preloaded into the local Kind node to avoid pulling it when a runner starts.
-
----
+* ARC creates ephemeral runner pods.
+* Runner capacity can scale based on pending GitHub Actions jobs.
+* Runner pods are removed after jobs complete.
+* The entire environment can be reproduced with Docker Compose.
+* The setup supports both `amd64` and `arm64` hosts.
+* The GitHub repository used by ARC can be configured without modifying the project files.
 
 ## Requirements
 
@@ -107,23 +101,95 @@ The setup container installs the remaining tools automatically:
 * kubectl
 * Helm
 
----
+## GitHub Configuration
 
-## GitHub Token
+The demo uses two environment variables:
 
-The runner scale set needs a GitHub token to authenticate with GitHub.
+```bash
+export GITHUB_CONFIG_URL="https://github.com/OWNER/REPOSITORY"
+export GITHUB_PAT="your_github_token"
+```
 
-Export your token before starting the demo:
+### GITHUB_CONFIG_URL
+
+`GITHUB_CONFIG_URL` specifies the GitHub repository where the runner scale set will be registered.
+
+For example:
+
+```bash
+export GITHUB_CONFIG_URL="https://github.com/YOUR_USERNAME/arc-runners-demo"
+```
+
+This allows the same POC to be used with different GitHub repositories without changing the Kubernetes configuration.
+
+### GITHUB_PAT
+
+`GITHUB_PAT` is used by ARC to authenticate with GitHub.
 
 ```bash
 export GITHUB_PAT="your_github_token"
 ```
 
-The token must have the permissions required by GitHub Actions Runner Scale Sets for the repository being used.
+The token must have the permissions required by GitHub Actions Runner Scale Sets for the target repository.
 
-**Do not commit the token to the repository.**
+**Never commit the token to the repository.**
 
----
+## Using Your Own Repository
+
+For the most portable setup, fork this repository into your own GitHub account.
+
+For example:
+
+```text
+Original:
+
+github.com/jrodriguezg045/arc-runners-demo
+
+Your fork:
+
+github.com/YOUR_USERNAME/arc-runners-demo
+```
+
+Then configure the demo to use your fork:
+
+```bash
+export GITHUB_CONFIG_URL="https://github.com/YOUR_USERNAME/arc-runners-demo"
+export GITHUB_PAT="your_github_token"
+```
+
+Start the environment:
+
+```bash
+docker compose up
+```
+
+The GitHub Actions workflows in your fork can then use:
+
+```yaml
+runs-on: arc-runner-set
+```
+
+The complete flow becomes:
+
+```text
+Your GitHub Repository
+        │
+        │ GitHub Actions
+        ▼
+GitHub Runner Scale Set
+        │
+        ▼
+ARC Controller
+        │
+        ▼
+Local Kubernetes / Kind
+        │
+        ▼
+Ephemeral Runner Pod
+        │
+        ▼
+GitHub Actions Job
+```
 
 ## Project Structure
 
@@ -139,26 +205,35 @@ The token must have the permissions required by GitHub Actions Runner Scale Sets
 │
 ├── docker-compose.yml
 ├── entrypoint.sh
-├── setup.sh
 ├── destroy.sh
 └── README.md
 ```
 
----
-
 ## Configuration
 
-The main ARC configuration is located at:
+The main ARC runner configuration is located at:
 
 ```text
 kubernetes/runner-values.yaml
 ```
 
-The current configuration is:
+The repository URL is intentionally **not hardcoded** in this file.
+
+The target GitHub repository is supplied at runtime through:
+
+```bash
+GITHUB_CONFIG_URL
+```
+
+The GitHub authentication token is supplied through:
+
+```bash
+GITHUB_PAT
+```
+
+The current runner configuration is:
 
 ```yaml
-githubConfigUrl: "https://github.com/OWNER/REPOSITORY"
-
 runnerScaleSetName: "arc-runner-set"
 
 minRunners: 1
@@ -169,8 +244,6 @@ template:
     containers:
       - name: runner
         image: ghcr.io/actions/actions-runner:latest
-        imagePullPolicy: IfNotPresent
-
         command:
           - /home/runner/run.sh
 
@@ -184,13 +257,9 @@ template:
             memory: "1Gi"
 ```
 
-> Update `githubConfigUrl` to point to the GitHub repository that will run the demo.
-
----
-
 ## Runner Scaling
 
-The demo uses:
+The demo currently uses:
 
 ```yaml
 minRunners: 1
@@ -199,44 +268,42 @@ maxRunners: 3
 
 This means:
 
-* At least one runner is maintained by the scale set.
-* The runner is available before a GitHub Actions job is submitted.
-* ARC can create additional runners when multiple jobs are queued.
-* The scale set supports up to three concurrent runners.
-* Ephemeral runner pods are removed after completing their jobs.
+* One runner is maintained as baseline capacity.
+* ARC can create additional runners when jobs are queued.
+* Up to three runners can run concurrently.
+* Ephemeral runners are removed after their jobs complete.
 
-The expected behavior is:
+The baseline runner also helps demonstrate the difference between having an immediately available runner and provisioning runners from zero.
+
+The scaling model is:
 
 ```text
-No jobs
-   │
-   ▼
-1 runner
-   │
-   │ additional jobs queued
-   ▼
-2 runners
-   │
-   │ additional jobs queued
-   ▼
-3 runners
-   │
-   │ jobs finish
-   ▼
+No workload
+     │
+     ▼
+1 runner ready
+     │
+     │ additional jobs
+     ▼
+ARC creates more runners
+     │
+     ▼
+2 → 3 runners
+     │
+     │ jobs complete
+     ▼
+Runner capacity returns
+     │
+     ▼
 1 runner
 ```
-
-Because `minRunners` is `1`, the demo intentionally keeps one runner available instead of scaling down to zero.
-
-This allows a GitHub Actions job to start without first waiting for ARC to provision the initial runner.
-
----
 
 ## Start the Demo
 
 From the project directory:
 
 ```bash
+export GITHUB_CONFIG_URL="https://github.com/YOUR_USERNAME/YOUR_REPOSITORY"
 export GITHUB_PAT="your_github_token"
 
 docker compose up
@@ -249,20 +316,14 @@ The setup container will:
 3. Create the Kind Kubernetes cluster.
 4. Connect the Kind control plane to the Docker Compose network.
 5. Configure Kubernetes connectivity.
-6. Wait for the Kubernetes node to become ready.
-7. Pull the GitHub Actions runner image.
-8. Load the runner image into the Kind node.
-9. Install the ARC controller.
-10. Install the ARC Runner Scale Set.
-11. Wait for the minimum runner to be created.
-12. Wait for the runner pod to become ready.
-13. Validate the installation.
+6. Pre-pull the GitHub Actions runner image.
+7. Load the runner image into Kind.
+8. Install the ARC controller.
+9. Install the ARC runner scale set.
+10. Wait for the minimum runner to become available.
+11. Validate the installation.
 
-The first startup may take some time because the environment needs to create the Kubernetes cluster, download the runner image, load the image into Kind, install ARC, and wait for the runner to become ready.
-
-Once the environment is ready, the setup container remains running so the Kubernetes environment can be inspected from another terminal.
-
----
+When the environment is ready, the setup container remains running so the environment can be inspected during the demo.
 
 ## Verify Kubernetes
 
@@ -281,11 +342,9 @@ NAME                              STATUS   ROLES           AGE   VERSION
 demo-arc-cluster-control-plane   Ready    control-plane   ...   v1.30.0
 ```
 
----
-
 ## Verify ARC
 
-Check the ARC components:
+Check the ARC controller:
 
 ```bash
 docker exec demo-arc-setup kubectl get pods -n arc-systems
@@ -293,61 +352,26 @@ docker exec demo-arc-setup kubectl get pods -n arc-systems
 
 You should see the ARC controller and listener running.
 
-Then check the Runner Scale Set:
+Then check the runner scale set:
 
 ```bash
-docker exec demo-arc-setup kubectl get autoscalingrunnersets -n arc-runners
+docker exec demo-arc-setup \
+  kubectl get autoscalingrunnersets \
+  -n arc-runners
 ```
 
-Expected:
+You should see something similar to:
 
 ```text
 NAME             MINIMUM RUNNERS   MAXIMUM RUNNERS   CURRENT RUNNERS
 arc-runner-set   1                 3                 1
 ```
 
-The exact output may also contain additional columns such as:
-
-```text
-STATE
-PENDING RUNNERS
-RUNNING RUNNERS
-FINISHED RUNNERS
-DELETING RUNNERS
-```
-
-With `minRunners: 1`, the scale set should normally maintain one runner when there are no GitHub Actions jobs.
-
----
-
-## Verify the Runner
-
-Check the runner pods:
-
-```bash
-docker exec demo-arc-setup kubectl get pods -n arc-runners
-```
-
-Expected:
-
-```text
-NAME                                READY   STATUS    RESTARTS   AGE
-arc-runner-set-xxxxx-runner-xxxxx   1/1     Running   0          ...
-```
-
-The runner image is preloaded into the Kind node during setup. The runner uses:
-
-```yaml
-imagePullPolicy: IfNotPresent
-```
-
-so Kubernetes can use the locally available image instead of downloading it again when creating the runner.
-
----
+Because `minRunners` is configured to `1`, a runner should normally be available even when there are no jobs running.
 
 ## Test the GitHub Actions Runner
 
-The workflow must use the ARC Runner Scale Set name:
+The workflow must use the runner scale set name:
 
 ```yaml
 runs-on: arc-runner-set
@@ -385,19 +409,20 @@ GitHub → Repository → Actions
 
 Run the workflow manually.
 
-Because `minRunners` is set to `1`, a runner should already be available.
-
-You can observe the runner:
+Then watch the Kubernetes runners:
 
 ```bash
-docker exec demo-arc-setup kubectl get pods -n arc-runners -w
+docker exec demo-arc-setup \
+  kubectl get pods \
+  -n arc-runners \
+  -w
 ```
 
----
+You should see the runner pod become available and execute the GitHub Actions job.
 
 ## Demonstrating Autoscaling
 
-The repository includes a matrix-based workload that creates multiple jobs concurrently.
+The repository includes a matrix-based workload that can create multiple jobs concurrently.
 
 For example:
 
@@ -414,10 +439,13 @@ Each matrix entry becomes a separate GitHub Actions job.
 While the workflow is running:
 
 ```bash
-docker exec demo-arc-setup kubectl get pods -n arc-runners -w
+docker exec demo-arc-setup \
+  kubectl get pods \
+  -n arc-runners \
+  -w
 ```
 
-You should see ARC create additional runner pods as jobs are queued.
+You should see additional runner pods being created when the existing capacity is insufficient.
 
 You can also inspect the scale set:
 
@@ -427,7 +455,7 @@ docker exec demo-arc-setup \
   -n arc-runners
 ```
 
-The important fields are:
+Important fields include:
 
 ```text
 MINIMUM RUNNERS
@@ -438,21 +466,16 @@ RUNNING RUNNERS
 FINISHED RUNNERS
 ```
 
-For example, during the workload you may see:
+For example, during concurrent workloads you may observe:
 
 ```text
 NAME             MINIMUM RUNNERS   MAXIMUM RUNNERS   CURRENT RUNNERS
 arc-runner-set   1                 3                 3
 ```
 
-After the jobs finish, the scale set should return toward its minimum capacity:
+After the jobs finish, ephemeral runners should be removed and capacity should return toward the configured minimum.
 
-```text
-CURRENT RUNNERS
-1
-```
-
-This demonstrates the core ARC behavior:
+## Autoscaling Flow
 
 ```text
 GitHub Actions jobs increase
@@ -467,32 +490,37 @@ ARC requests additional runners
 Kubernetes creates runner pods
         │
         ▼
+Runner pods connect to GitHub
+        │
+        ▼
 Jobs execute
         │
         ▼
 Jobs finish
         │
         ▼
-Ephemeral runners are removed
+Ephemeral runner pods are removed
         │
         ▼
-Runner capacity returns toward minimum
+Runner capacity returns toward minRunners
 ```
-
----
 
 ## Useful Commands
 
 ### List all Kubernetes pods
 
 ```bash
-docker exec demo-arc-setup kubectl get pods -A
+docker exec demo-arc-setup \
+  kubectl get pods -A
 ```
 
 ### Watch runner pods
 
 ```bash
-docker exec demo-arc-setup kubectl get pods -n arc-runners -w
+docker exec demo-arc-setup \
+  kubectl get pods \
+  -n arc-runners \
+  -w
 ```
 
 ### Check ARC controller logs
@@ -504,7 +532,7 @@ docker exec demo-arc-setup \
   deployment/arc-controller-gha-rs-controller
 ```
 
-### Check Runner Scale Set
+### Check runner scale set
 
 ```bash
 docker exec demo-arc-setup \
@@ -512,7 +540,7 @@ docker exec demo-arc-setup \
   -n arc-runners
 ```
 
-### Describe the Runner Scale Set
+### Describe the runner scale set
 
 ```bash
 docker exec demo-arc-setup \
@@ -524,31 +552,19 @@ docker exec demo-arc-setup \
 ### Check Kubernetes nodes
 
 ```bash
-docker exec demo-arc-setup kubectl get nodes
+docker exec demo-arc-setup \
+  kubectl get nodes
 ```
-
-### Check runner image on the Kind node
-
-```bash
-docker exec demo-arc-cluster-control-plane \
-  crictl images | grep actions-runner
-```
-
----
 
 ## Cleanup
 
-To completely remove the local ARC demo environment, run:
+To completely remove the local ARC demo environment:
 
 ```bash
 ./destroy.sh
 ```
 
-The cleanup script removes the Kind cluster and stops the Docker Compose environment.
-
-If Docker Desktop reports a filesystem/storage error while removing containers, restart Docker Desktop and run the cleanup command again.
-
----
+This removes the Kind cluster and stops the Docker Compose environment.
 
 ## Portability
 
@@ -557,8 +573,8 @@ The setup detects the host architecture automatically.
 Supported architectures:
 
 ```text
-x86_64  → amd64
-aarch64 → arm64
+x86_64       → amd64
+aarch64      → arm64
 ```
 
 The appropriate Kind binary is downloaded dynamically:
@@ -568,9 +584,9 @@ kind-linux-amd64
 kind-linux-arm64
 ```
 
-This allows the same project to be used on common Intel/AMD and Apple Silicon environments, assuming Docker is available.
+The runner image is also pre-pulled and loaded into the Kind node during setup to avoid waiting for Kubernetes/containerd to download the image when a runner is first created.
 
----
+This allows the same project to be used on common Intel/AMD and Apple Silicon environments, assuming Docker is available.
 
 ## Why Kind?
 
@@ -582,10 +598,8 @@ That makes it useful for this demo because:
 * No managed Kubernetes cluster is required.
 * The entire environment runs locally.
 * Kubernetes behavior can be observed directly.
-* The setup can be destroyed and recreated quickly.
+* The environment can be destroyed and recreated.
 * ARC can be demonstrated using real Kubernetes resources.
-
----
 
 ## Why ARC?
 
@@ -618,15 +632,11 @@ ARC
   ├── Runner Pod
   └── Runner Pod
 
-Created as capacity is needed
-Removed after jobs complete
+Created when needed
+Removed when finished
 ```
 
-In this demo, one runner is kept available while additional runners are created when concurrent workload increases.
-
-This model is particularly useful when runner workloads need to scale dynamically without maintaining a permanently large runner fleet.
-
----
+This is useful when runner workloads need to scale dynamically while avoiding permanently running runner infrastructure.
 
 ## Troubleshooting
 
@@ -636,49 +646,32 @@ Set the environment variable before starting Compose:
 
 ```bash
 export GITHUB_PAT="your_github_token"
+export GITHUB_CONFIG_URL="https://github.com/OWNER/REPOSITORY"
 
 docker compose up
 ```
 
----
+### `GITHUB_CONFIG_URL is not set`
 
-### Runner Scale Set shows one runner
+Set the repository URL:
 
-This is expected with the current configuration:
+```bash
+export GITHUB_CONFIG_URL="https://github.com/OWNER/REPOSITORY"
+```
+
+The URL must point to the GitHub repository where the runner scale set should be registered.
+
+### Runner scale set shows zero runners
+
+With the current configuration:
 
 ```yaml
 minRunners: 1
 ```
 
-The demo intentionally keeps one runner available when there are no jobs.
+the scale set should normally maintain one runner.
 
----
-
-### Runner scale set does not scale
-
-Verify that the workflow uses:
-
-```yaml
-runs-on: arc-runner-set
-```
-
-Check the ARC components:
-
-```bash
-docker exec demo-arc-setup \
-  kubectl get pods \
-  -n arc-systems
-```
-
-Check the Runner Scale Set:
-
-```bash
-docker exec demo-arc-setup \
-  kubectl get autoscalingrunnersets \
-  -n arc-runners
-```
-
-Check the runner pods:
+If no runner exists, check:
 
 ```bash
 docker exec demo-arc-setup \
@@ -686,7 +679,14 @@ docker exec demo-arc-setup \
   -n arc-runners
 ```
 
----
+Then inspect the scale set:
+
+```bash
+docker exec demo-arc-setup \
+  kubectl describe autoscalingrunnerset \
+  arc-runner-set \
+  -n arc-runners
+```
 
 ### Workflow stays queued
 
@@ -706,7 +706,7 @@ docker exec demo-arc-setup \
   -n arc-systems
 ```
 
-3. The Runner Scale Set exists:
+3. The runner scale set exists:
 
 ```bash
 docker exec demo-arc-setup \
@@ -714,41 +714,13 @@ docker exec demo-arc-setup \
   -n arc-runners
 ```
 
-4. The GitHub configuration URL in `runner-values.yaml` points to the correct repository.
+4. `GITHUB_CONFIG_URL` points to the repository containing the workflow.
 
-5. The GitHub token has the required permissions.
-
----
-
-### Runner image takes a long time to load
-
-During the initial setup, the runner image is:
-
-1. Pulled from GHCR.
-2. Loaded into the Kind node.
-3. Used by Kubernetes when ARC creates runner pods.
-
-You may see:
-
-```text
-Pulling runner image...
-Loading runner image into Kind...
-```
-
-This is expected during the initial setup.
-
-You can verify that the image exists inside the Kind node:
-
-```bash
-docker exec demo-arc-cluster-control-plane \
-  crictl images | grep actions-runner
-```
-
----
+5. The GitHub PAT has the required permissions.
 
 ### Kubernetes API connectivity problems
 
-Verify that the Kind control-plane is connected to the Compose network:
+Verify that the Kind control plane is connected to the Compose network:
 
 ```bash
 docker inspect demo-arc-cluster-control-plane \
@@ -775,13 +747,11 @@ docker run --rm \
 
 A successful response should contain Kubernetes version information.
 
----
+## Proof of Concept Scope
 
-## Goal of the Demo
+This project is intentionally a local **Proof of Concept** rather than a production-ready Kubernetes platform.
 
-The purpose of this project is not to provide a production Kubernetes environment.
-
-It is a reproducible local demonstration of the following platform-engineering pattern:
+The objective is to demonstrate the core integration:
 
 ```text
 GitHub Actions
@@ -799,6 +769,14 @@ Ephemeral Runners
 Elastic CI/CD Capacity
 ```
 
-The local Kind environment provides a lightweight way to demonstrate the architecture without requiring cloud infrastructure.
+A production implementation would use a managed Kubernetes platform such as **Amazon EKS**, with dedicated compute capacity, production networking, security controls, secrets management, observability, autoscaling policies, and appropriate isolation.
 
-The same architectural pattern can later be extended to a cloud Kubernetes environment such as Amazon EKS, where runner pods can scale across actual compute capacity.
+The same architectural pattern can therefore be extended from this local Kind environment to cloud infrastructure.
+
+## Goal of the Demo
+
+The purpose of this project is to demonstrate a practical platform-engineering pattern:
+
+> **GitHub Actions workloads can dynamically consume Kubernetes-based ephemeral compute through Actions Runner Controller.**
+
+The local implementation provides a reproducible environment for experimenting with that architecture before moving toward a production implementation.
